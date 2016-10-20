@@ -8,6 +8,7 @@
         <scala.version>2.11.8</scala.version>
         <spark.version>2.0.1</spark.version>
         <scala.binary.version>2.11</scala.binary.version>
+        <archery.version>0.3.0</archery.version>
     </properties>
 
     <dependencies>
@@ -34,6 +35,11 @@
             <version>${spark.version}</version>
             <type>test-jar</type>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.meetup</groupId>
+            <artifactId>archery_${scala.binary.version}</artifactId>
+            <version>${archery.version}</version>
         </dependency>
     </dependencies>
     <build>
