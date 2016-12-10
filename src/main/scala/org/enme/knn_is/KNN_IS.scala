@@ -9,42 +9,43 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.sql.types.DoubleType
 
 import scala.collection.mutable.ArrayBuffer
 
 trait KNN_ISParams extends PredictorParams {
+
+  final val supportedDistanceTypes: Array[String] = Array("euclidean", "manhattan")
+
   // Obligatory parameters
   final val K: IntParam = new IntParam(this, "K", "Number of neighbors.", ParamValidators.gtEq(1))
-  final def getK: Int = $(K)
+  def setK(value: Int): this.type = set(K, value)
+  setDefault (K -> 1)
 
-  final val distanceType: IntParam = new IntParam(this, "distanceType",
-    "Distance Type: MANHATTAN = 1 ; EUCLIDEAN = 2 ; HVDM = 3.", ParamValidators.gtEq(1))
-  final def getDistanceType: Int = $(distanceType)
+  final val distanceType = new Param[String](this, "distanceType",
+    "Distance Type that supported in this algorithm.",
+    (value: String) => supportedDistanceTypes.contains(value))
 
-  final var numIter: IntParam = new IntParam(this, "numIterations",
-    "Number of Iteration to classify the test.")
-  final def getNumIter: Int = $(numIter)
+  def setDistanceType(value: String): this.type = set(distanceType, value)
+  setDefault (distanceType -> "manhattan")
 
-  final val numSamplesTest: IntParam = new IntParam(this, "numSamplesTest",
-    "Number of instance in the test set.", ParamValidators.gtEq(1))
-  final def getNumSamplesTest: Int = $(numSamplesTest)
+  final var concurrency: IntParam = new IntParam(this, "concurrency",
+    "Number of concurrency to classify the test.")
+  def setConcurrency(value: Int): this.type = set(concurrency, value)
+  setDefault (concurrency -> 1)
 
-  // Count the samples of each data set and the number of classes.
-  // Array with the right classes of the test set.
-
-  final var numClass: IntParam = new IntParam(this, "numClass",
-    "Number of classes.", ParamValidators.gtEq(1))
-  final def getNumClass: Int = $(numClass)
 
   // Setting Iterative MapReduce
-  final var inc: IntParam = new IntParam(this, "inc", "Increment used to the iterative behavior.")
-  final def getInc: Int = $(inc)
-  final var subdel: IntParam = new IntParam(this, "subdel",
+  final var inc: LongParam = new LongParam(this, "inc", "Increment used to the iterative behavior.")
+  def setInc(value: Long): this.type = set(inc, value)
+
+  final var subdel: LongParam = new LongParam(this, "subdel",
     "Sub-delimiter used to the iterative behavior.")
-  final def getSubdel: Int = $(subdel)
-  final var topdel: IntParam = new IntParam(this, "topdel",
+  def setSubdel(value: Long): this.type = set(subdel, value)
+
+  final var topdel: LongParam = new LongParam(this, "topdel",
     "Top-delimiter used to the iterative behavior.")
-  final def getTopdel: Int = $(topdel)
+  def setTopdel(value: Long): this.type = set(topdel, value)
 }
 
 /**
@@ -60,24 +61,6 @@ class KNN_ISClassifier(override val uid: String)
 
   def this() = this(Identifiable.randomUID("kNN_IS"))
 
-  def setK(value: Int): this.type = set(K, value)
-  setDefault (K -> 1)
-  def setDistanceType(value: Int): this.type = set(distanceType, value)
-  setDefault (distanceType -> 1)
-  def setNumSamplesTest(value: Int): this.type = set(numSamplesTest, value)
-  setDefault (numSamplesTest -> 1)
-  def setNumClass(value: Int): this.type = set(numClass, value)
-  setDefault (numClass -> 1)
-
-  def setInc(value: Int): this.type = set(inc, value)
-  setDefault (inc -> 0)
-  def setTopdel(value: Int): this.type = set(topdel, value)
-  setDefault (topdel -> 0)
-  def setSubdel(value: Int): this.type = set(subdel, value)
-  setDefault (subdel -> 0)
-  def setNumIter(value: Int): this.type = set(numIter, value)
-  setDefault (numIter -> 1)
-
   /**
     * Initial setting necessary.
     * Auto-set the number of iterations and load the data sets and parameters.
@@ -87,17 +70,21 @@ class KNN_ISClassifier(override val uid: String)
   override protected def train(dataset: Dataset[_]): KNN_ISClassificationModel = {
     val train: RDD[LabeledPoint] = extractLabeledPoints(dataset)
 
+    val numSamplesTest = dataset.count()
+
     // Setting Iterative MapReduce
-    this.setInc($(numSamplesTest) / $(numIter))
+    this.setInc(numSamplesTest / $(concurrency))
     this.setSubdel(0)
     this.setTopdel($(inc))
     // If only one partition
-    if ($(numIter) == 1) {
-      this.setTopdel($(numSamplesTest) + 1)
+    if ($(concurrency) == 1) {
+      this.setTopdel(numSamplesTest + 1)
     }
 
-    val knn = kNN_ISClassificationModel(train, $(K), $(distanceType), $(numSamplesTest),
-      $(numClass), $(inc), $(subdel), $(topdel), $(numIter), this)
+    val numClasses: Int = getNumClasses(dataset)
+
+    val knn = kNN_ISClassificationModel(train, $(K), $(distanceType), numSamplesTest,
+      numClasses, $(inc), $(subdel), $(topdel), $(concurrency), this)
 
     knn
   }
@@ -110,14 +97,14 @@ object kNN_ISClassifier extends DefaultParamsReadable[KNN_ISClassifier] {
 }
 
 class KNN_ISClassificationModel (override val uid: String, val train: RDD[LabeledPoint],
-        val k: Int, val distanceType: Int, val numSamplesTest: Int, val numClass: Int,
-        var inc: Int, var subdel: Int, var topdel: Int, val numIter: Int)
+                                 val k: Int, val distanceType: String, val numSamplesTest: Long, val numClass: Int,
+                                 var inc: Long, var subdel: Long, var topdel: Long, val numIter: Int)
   extends ClassificationModel[Vector, KNN_ISClassificationModel] with Serializable {
 
   override val numClasses: Int = numClass
 
-  def this(train: RDD[LabeledPoint], k: Int, distanceType: Int, numSamplesTest: Int, numClass: Int,
-           inc: Int, subdel: Int, topdel: Int, numIter: Int) =
+  def this(train: RDD[LabeledPoint], k: Int, distanceType: String, numSamplesTest: Long,
+           numClass: Int, inc: Long, subdel: Long, topdel: Long, numIter: Int) =
     this(Identifiable.randomUID("kNN_IS"), train, k, distanceType, numSamplesTest,
       numClass, inc, subdel, topdel, numIter)
 
@@ -130,22 +117,25 @@ class KNN_ISClassificationModel (override val uid: String, val train: RDD[Labele
     * @param subdel Int needed for take order when iterative version is running
     * @return K Nearest Neighbors for this split
     */
-  def knn[T](iter: Iterator[LabeledPoint], testSet: Broadcast[Array[LabeledPoint]], subdel: Int):
-      Iterator[(Int, Array[Array[Double]])] = {
+  def knn[T](iter: Iterator[LabeledPoint], testSet: Broadcast[Array[LabeledPoint]], subdel: Long):
+  Iterator[(Long, Array[Array[Double]])] = {
     // Initialization
     val train = new ArrayBuffer[LabeledPoint]
     val size = testSet.value.length
 
-    var dist: Distance.Value = null
     // Distance MANHATTAN or EUCLIDEAN
-    if(distanceType == 1) dist = Distance.Manhattan else dist = Distance.Euclidean
+    val dist: Distance.Value = distanceType match {
+      case "manhattan" => Distance.Manhattan
+      case "euclidean" => Distance.Euclidean
+      case _ => throw new Exception("Don't support this type")
+    }
     // Join the train set
     while (iter.hasNext) train.append(iter.next)
 
-    val knnMemb = new KNN(train, k, dist, numClass)
+    val knnMemb = new KNN(train, k, dist, numClasses)
 
     var auxSubDel = subdel
-    val result = new Array[(Int, Array[Array[Double]])](size)
+    val result = new Array[(Long, Array[Array[Double]])](size)
 
     for (i <- 0 until size) {
       result(i) = (auxSubDel, knnMemb.neighbors(testSet.value(i).features))
@@ -163,7 +153,7 @@ class KNN_ISClassificationModel (override val uid: String, val train: RDD[Labele
     * @return Combine of both element with the nearest neighbors
     */
   def combine(mapOut1: Array[Array[Double]], mapOut2: Array[Array[Double]]):
-              Array[Array[Double]] = {
+  Array[Array[Double]] = {
     var itOut1 = 0
     var itOut2 = 0
     val out: Array[Array[Double]] = new Array[Array[Double]](k)
@@ -202,11 +192,12 @@ class KNN_ISClassificationModel (override val uid: String, val train: RDD[Labele
     * @return predicted and right class.
     */
   def calculatePredictedRightClassesFuzzy(
-               sample: (Int, (LabeledPoint, Array[Array[Double]]))): Double = {
+                                           sample: (Long, (LabeledPoint, Array[Array[Double]]))): (LabeledPoint, Double) = {
 
     val predictedNeigh = sample._2._2
+    val labeledPoint = sample._2._1
 
-    val auxClas = new Array[Int](numClass)
+    val auxClas = new Array[Int](numClasses)
     var clas = 0
     var numVotes = 0
     for (j <- 0 until k) {
@@ -217,7 +208,7 @@ class KNN_ISClassificationModel (override val uid: String, val train: RDD[Labele
       }
     }
 
-    clas.toDouble
+    (labeledPoint, clas.toDouble)
   }
 
   /**
@@ -233,12 +224,12 @@ class KNN_ISClassificationModel (override val uid: String, val train: RDD[Labele
       .map { case Row(label: Double, features: Vector) => LabeledPoint(label, features) } }
 
     val testWithKey = test.rdd.zipWithIndex()
-      .map { line => (line._2.toInt, line._1) }
+      .map { line => (line._2, line._1) }
       .sortByKey()
       .cache()
 
     var testBroadcast: Broadcast[Array[LabeledPoint]] = null
-    var output: RDD[Double] = null
+    var output: RDD[(LabeledPoint, Double)] = null
 
     for (i <- 0 until numIter) {
       // Taking the iterative initial time.
@@ -259,18 +250,25 @@ class KNN_ISClassificationModel (override val uid: String, val train: RDD[Labele
       } else {
         output = output.union(testWithKey
           .join(train.mapPartitions(split => knn(split, testBroadcast, subdel))
-          .reduceByKey(combine))
+            .reduceByKey(combine))
           .map(sample => calculatePredictedRightClassesFuzzy(sample)))
           .cache()
       }
-      output.count()
+      output.first()
       // Update the pairs of delimiters
       subdel = topdel + 1
       topdel = topdel + inc + 1
       testBroadcast.destroy()
     }
 
-    val res = output.toDF().withColumnRenamed("value", ${predictionCol})
+    val resRDD = output.map{
+      case (point: LabeledPoint, pre: Double) =>
+        Row.fromSeq(Array(point.label, point.features, pre))
+    }
+
+    val schema = dataset.schema.add(${predictionCol}, DoubleType)
+
+    val res = dataset.sparkSession.createDataFrame(resRDD, schema)
     res
   }
 
@@ -283,8 +281,8 @@ class KNN_ISClassificationModel (override val uid: String, val train: RDD[Labele
   }
 
   override def copy(extra: ParamMap): KNN_ISClassificationModel = {
-    copyValues(new KNN_ISClassificationModel(train: RDD[LabeledPoint], k: Int, distanceType: Int,
-      numSamplesTest: Int, numClass: Int, inc: Int, subdel: Int, topdel: Int, numIter: Int))
+    copyValues(new KNN_ISClassificationModel(train: RDD[LabeledPoint], k: Int, distanceType: String,
+      numSamplesTest: Long, numClass: Int, inc: Long, subdel: Long, topdel: Long, numIter: Int))
   }
 
   override def toString: String = {
@@ -294,14 +292,15 @@ class KNN_ISClassificationModel (override val uid: String, val train: RDD[Labele
 
 private object kNN_ISClassificationModel {
 
-  def apply(train: RDD[LabeledPoint], k: Int, distanceType: Int, numSamplesTest: Int, numClass: Int,
-            inc: Int, subdel: Int, topdel: Int, numIter: Int, parent: KNN_ISClassifier):
-      KNN_ISClassificationModel = {
+  def apply(train: RDD[LabeledPoint], k: Int, distanceType: String, numSamplesTest: Long,
+            numClass: Int, inc: Long, subdel: Long, topdel: Long, numIter: Int,
+            parent: KNN_ISClassifier): KNN_ISClassificationModel = {
 
     val uid = if (parent != null) parent.uid else Identifiable.randomUID("kNN_IS")
 
     new KNN_ISClassificationModel(uid, train, k, distanceType, numSamplesTest, numClass,
-      inc: Int, subdel: Int, topdel: Int, numIter: Int)
+      inc: Long, subdel: Long, topdel: Long, numIter: Int)
   }
 }
+
 
