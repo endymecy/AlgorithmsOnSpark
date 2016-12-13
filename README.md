@@ -7,7 +7,12 @@ Currently it support the flowing algorithms and I will add some other algorithms
 - Distributed KNN
 - Distributed DBSCAN
 - Down Sampling
-- Over Samping
+- Over Sampling
+- Affinity Propagation
 
 
 This project support spark 2.x
+
+Some algorithm modified from other repositories.
+
+- [https://github.com/viirya/SparkAffinityPropagation](https://github.com/viirya/SparkAffinityPropagation)
