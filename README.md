@@ -10,6 +10,9 @@ Currently it support the flowing algorithms and I will add some other algorithms
 - Over Sampling
 - Affinity Propagation
 - Distributed t-SNE
+- Factorization Machines
+- Multi-view Machines
+- Block Structures Factorization Machines
 
 
 This project support spark 2.x
@@ -18,3 +21,4 @@ Some algorithms modified from other repositories.
 
 - [https://github.com/viirya/SparkAffinityPropagation](https://github.com/viirya/SparkAffinityPropagation)
 - [https://github.com/saurfang/spark-tsne](https://github.com/saurfang/spark-tsne)
+- [https://github.com/cloudml/zen](https://github.com/cloudml/zen)
