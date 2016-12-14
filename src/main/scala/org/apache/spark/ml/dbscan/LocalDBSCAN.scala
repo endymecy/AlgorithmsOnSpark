@@ -1,4 +1,4 @@
-package org.enme.dbscan
+package org.apache.spark.ml.dbscan
 
 import archery.{Box, Entry, Point, RTree}
 

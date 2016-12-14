@@ -1,4 +1,4 @@
-package org.enme.knn_is
+package org.apache.spark.ml.knn_is
 
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.ml.feature.LabeledPoint

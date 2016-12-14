@@ -1,4 +1,4 @@
-package org.enme.dbscan
+package org.apache.spark.ml.dbscan
 
 import java.net.URI
 
@@ -6,6 +6,7 @@ import org.apache.spark.SparkFunSuite
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.util.DefaultReadWriteTest
 import org.apache.spark.mllib.util.MLlibTestSparkContext
+import org.enme.dbscan.{DBSCAN, DBSCANPoint}
 
 import scala.io.Source
 

@@ -1,17 +1,17 @@
-package org.enme.sampling
+package org.apache.spark.ml.sampling
 
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.functions._
 
 /**
   * Created by endy on 16-12-8.
   */
 
-trait UnderSamplingParams extends Params{
+trait OverSamplingParams extends Params{
   final val threshold = new DoubleParam(this, "threshold", "The threshold whether to  " +
     "undersampling sample of a class", (x: Double) => x > 1)
   def setThreshold(value: Double): this.type = set(threshold, value)
@@ -20,48 +20,49 @@ trait UnderSamplingParams extends Params{
     "provide label values")
   def setDependentColName(value: String): this.type = set(dependentColName, value)
 
-  final val withReplacement = new BooleanParam(this, "withReplacement", "")
-  def setWithReplacement(value: Boolean): this.type = set(withReplacement, value)
-
   final val primaryClass = new DoubleParam(this, "primaryClass", "primary class that to under " +
     "sampling")
   def setPrimaryClass(value: Double): this.type = set(primaryClass, value)
 }
 
 
-class UnderSampling(override val uid: String) extends Transformer with UnderSamplingParams{
+class OverSampling(override val uid: String) extends Transformer with OverSamplingParams {
+  def this() = this(Identifiable.randomUID("OverSampling"))
 
-  def this() = this(Identifiable.randomUID("UnderSampling"))
   /**
     * Transforms the input dataset.
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
-
     val labelCountPair = dataset.groupBy($(dependentColName)).count().collect()
 
     val primaryClassCount = labelCountPair
       .filter{ case Row(label: Double, count: Long) => label == ${primaryClass}}
-      .map(x => x.get(1)).headOption.getOrElse(-1L).asInstanceOf[Long]
+          .map(x => x.get(1)).headOption.getOrElse(-1L).asInstanceOf[Long]
 
     if (primaryClassCount == -1) throw new Exception("The label is not exist")
 
-    val res = labelCountPair.zipWithIndex.map {
-      case (Row(label: Double, count: Long), index: Int) =>
-       val ratio = count / primaryClassCount.toDouble
+    val res = labelCountPair.zipWithIndex
+      .map {
+          case (Row(label: Double, count: Long), index: Int) =>
+            val ratio = primaryClassCount / count.toDouble
 
-       /**
-         * if ratio < threshold, only return samples of this label,
-         * otherwise we sample the data from the samples of this label.
-         *
-         * The desired number of samples is : num = primaryClassCount * threshold
-         * so the fraction of sample method is: num / count = threshold / ratio
-         */
-       val df = if (ratio < ${threshold}) dataset.filter(col($(dependentColName)) === label)
-            else dataset.filter(col($(dependentColName)) === label)
-          .sample(${withReplacement}, ${threshold} / ratio)
-
-       df.toDF()
-    }.reduce(_ union _)
+            /**
+              * if ratio < threshold, only return samples of this label,
+              * otherwise we sample the data from the samples of this label.
+              *
+              * The desired number of samples is : num = primaryClassCount * threshold
+              * so the fraction of sample method is: num / count = ratio / threshold.
+              * Because fraction > 1, the value of 'withReplacement' parameter must be true
+              */
+            val df = if (ratio < ${threshold}) {
+              dataset.filter(col($(dependentColName)) === label)
+            } else {
+              val desiredFraction = ratio / ${threshold}
+              dataset.filter(col($(dependentColName)) === label)
+                .sample(withReplacement = true, desiredFraction)
+            }
+            df.toDF()
+     }.reduce(_ union _)
 
     res
   }

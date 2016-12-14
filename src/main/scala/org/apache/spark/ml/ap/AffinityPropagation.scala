@@ -1,9 +1,7 @@
-package org.enme.ap
-
+package org.apache.spark.ml.ap
 
 import scala.collection.mutable
 
-import org.apache.spark.{Logging, SparkException}
 import org.apache.spark.annotation.Experimental
 import org.apache.spark.api.java.JavaRDD
 import org.apache.spark.graphx._
@@ -141,7 +139,7 @@ class AffinityPropagation (
     private var normalization: Boolean,
     private var symmetric: Boolean) extends Serializable {
 
-  import org.viirya.AffinityPropagation._
+  import org.apache.spark.ml.ap.AffinityPropagation._
 
   /** Constructs a AP instance with default parameters: {maxIterations: 100, lambda: `0.5`,
    *    normalization: false, symmetric: true}.
@@ -314,7 +312,7 @@ class AffinityPropagation (
   }
 }
 
-object AffinityPropagation extends Logging {
+object AffinityPropagation {
   /**
    * Construct the similarity matrix (S) and do normalization if needed.
    * Returns the (normalized) similarity matrix (S).
@@ -439,12 +437,7 @@ object AffinityPropagation extends Logging {
           (x._1.availability - x._2.availability, x._1.responsibility - x._2.responsibility)
         }.collect().foldLeft((0.0, 0.0)) {(s, t) => (s._1 + t._1, s._2 + t._2)}
 
-        logInfo(s"$msgPrefix: availability delta = ${delta._1}.")
-        logInfo(s"$msgPrefix: responsibility delta = ${delta._2}.")
-
         diffDelta = (math.abs(delta._1 - prevDelta._1), math.abs(delta._2 - prevDelta._2))
-
-        logInfo(s"$msgPrefix: diff(delta) = $diffDelta.")
 
         prevDelta = delta
       }
