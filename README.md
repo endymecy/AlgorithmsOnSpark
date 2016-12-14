@@ -9,6 +9,7 @@ Currently it support the flowing algorithms and I will add some other algorithms
 - Down Sampling
 - Over Sampling
 - Affinity Propagation
+- Distributed t-SNE
 
 
 This project support spark 2.x
@@ -16,3 +17,4 @@ This project support spark 2.x
 Some algorithms modified from other repositories.
 
 - [https://github.com/viirya/SparkAffinityPropagation](https://github.com/viirya/SparkAffinityPropagation)
+- [https://github.com/saurfang/spark-tsne](https://github.com/saurfang/spark-tsne)
