@@ -22,3 +22,4 @@ Some algorithms modified from other repositories.
 - [https://github.com/viirya/SparkAffinityPropagation](https://github.com/viirya/SparkAffinityPropagation)
 - [https://github.com/saurfang/spark-tsne](https://github.com/saurfang/spark-tsne)
 - [https://github.com/cloudml/zen](https://github.com/cloudml/zen)
+- [https://github.com/JMailloH/kNN_IS](https://github.com/JMailloH/kNN_IS)
