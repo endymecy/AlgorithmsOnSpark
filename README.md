@@ -2,7 +2,7 @@
 
 This project implement some popular algorithms on spark.You can read the papers of them to see their details.
 
-Currently it support the flowing algorithms and I will add some other algorithms in the future.
+Currently it support the following algorithms and I will add some other algorithms in the future.
 
 - Distributed KNN
 - Down Sampling
@@ -13,6 +13,7 @@ Currently it support the flowing algorithms and I will add some other algorithms
 - Multi-view Machines
 - Block Structures Factorization Machines
 - Timeseries models
+- DBSCAN
 
 
 This project support spark 2.x
@@ -24,3 +25,4 @@ Some algorithms modified from other repositories.
 - [https://github.com/cloudml/zen](https://github.com/cloudml/zen)
 - [https://github.com/JMailloH/kNN_IS](https://github.com/JMailloH/kNN_IS)
 - [https://github.com/sryza/spark-timeseries](https://github.com/sryza/spark-timeseries)
+- [https://github.com/irvingc/dbscan-on-spark](https://github.com/irvingc/dbscan-on-spark)
