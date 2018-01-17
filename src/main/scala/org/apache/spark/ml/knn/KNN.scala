@@ -68,16 +68,18 @@ trait KNNModelParams extends Params with HasFeaturesCol with HasLabelCol {
 
   def transform(data: RDD[Vector], topTree: Broadcast[Tree], subTrees: RDD[Tree]):
     RDD[(Long, Array[Row])] = {
+
     val searchData = data.zipWithIndex().flatMap {
         case (vector, index) =>
           val vectorWithNorm = new VectorWithNorm(vector)
+          // i is one of children, the query may be sent to both children
+          // if it falls within the overlap buffer width of the decision plane.
           val idx = KNN.searchIndices(vectorWithNorm, topTree.value, $(bufferSize))
             .map(i => (i, (vectorWithNorm, index)))
 
           assert(idx.nonEmpty, s"indices must be non-empty: $vector ($index)")
           idx
-      }
-      .partitionBy(new HashPartitioner(subTrees.partitions.length))
+      }.partitionBy(new HashPartitioner(subTrees.partitions.length))
 
     // for each partition, search points within corresponding child tree
     val results = searchData.zipPartitions(subTrees) {
@@ -95,7 +97,7 @@ trait KNNModelParams extends Params with HasFeaturesCol with HasLabelCol {
 
     // merge results by point index together and keep topK results
     results.topByKey($(k))(Ordering.by(-_._2))
-      .map { case (i, seq) => (i, seq.map(_._1)) }
+      .map{ case (i, seq) => (i, seq.map(_._1)) }
   }
 
   def transform(dataset: Dataset[_], topTree: Broadcast[Tree], subTrees: RDD[Tree]):
@@ -333,16 +335,18 @@ class KNN(override val uid: String) extends Estimator[KNNModel] with KNNParams {
     val data = dataset.select($(featuresCol), $(labelCol)).rdd
       .map{case Row(features: Vector, label) => new RowWithVector(features,
         Row(label))}
-    // sample data to build top-level tree
+
+    // first create a random sample of the data small enough to fit on a single machine, say 1/M
+    // of the data, and build a metric tree for this data. Each of the leaf nodes in this top tree then defines
+    // a partition, for which a hybrid spill tree can be built on a separate machine.
     val sampled = data.sample(false, $(topTreeSize).toDouble / dataset.count(),
       rand.nextLong()).collect()
 
     val topTree = MetricTree.build(sampled, $(topTreeLeafSize), rand.nextLong())
     // build partitioner using top-level tree
     val part = new KNNPartitioner(topTree)
-    // noinspection ScalaStyle
-    val repartitioned = new ShuffledRDD[RowWithVector, Null, Null](data.map(v => (v, null)),
-      part).keys
+
+    val repartitioned = new ShuffledRDD[RowWithVector, Null, Null](data.map(v => (v, null)), part).keys
 
     val tau = if ($(balanceThreshold) > 0 && $(bufferSize) < 0) {
       KNN.estimateTau(data, $(bufferSizeSampleSizes), rand.nextLong())
