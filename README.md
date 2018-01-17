@@ -18,11 +18,11 @@ Currently it support the following algorithms and I will add some other algorith
 
 This project support spark 2.x
 
-Some algorithms modified from other repositories.
+## reference
 
-- [https://github.com/viirya/SparkAffinityPropagation](https://github.com/viirya/SparkAffinityPropagation)
-- [https://github.com/saurfang/spark-tsne](https://github.com/saurfang/spark-tsne)
-- [https://github.com/cloudml/zen](https://github.com/cloudml/zen)
-- [https://github.com/JMailloH/kNN_IS](https://github.com/JMailloH/kNN_IS)
-- [https://github.com/sryza/spark-timeseries](https://github.com/sryza/spark-timeseries)
-- [https://github.com/irvingc/dbscan-on-spark](https://github.com/irvingc/dbscan-on-spark)
+- https://github.com/viirya/SparkAffinityPropagation
+- https://github.com/saurfang/spark-tsne
+- https://github.com/cloudml/zen
+- https://github.com/sryza/spark-timeseries
+- https://github.com/irvingc/dbscan-on-spark
+- http://mlwiki.org/index.php/Metric_Trees
