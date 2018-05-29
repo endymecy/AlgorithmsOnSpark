@@ -6,7 +6,7 @@ import archery.Box
 import archery.Entry
 import archery.Point
 import archery.RTree
-import io.transwarp.discover.dbs.DBSCANLabeledPoint.Flag
+import org.apache.spark.ml.dbscan.DBSCANLabeledPoint.Flag
 
 /**
   * An implementation of DBSCAN using an R-Tree to improve its running time

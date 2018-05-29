@@ -1,6 +1,6 @@
 package org.apache.spark.ml.dbscan
 
-import io.transwarp.discover.dbs.DBSCANLabeledPoint.Flag
+import org.apache.spark.ml.dbscan.DBSCANLabeledPoint.Flag
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.rdd.RDD
